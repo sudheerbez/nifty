@@ -57,31 +57,16 @@ combined_data.dropna(subset=numeric_columns, inplace=True)
 combined_data['Point_Change'] = (combined_data['Close'] - combined_data['Open']).round(2)
 combined_data['Percentage_Change'] = ((combined_data['Point_Change'] / combined_data['Open']) * 100).round(2)
 
-# Step 4: Save the Combined Data
-home_dir = os.path.expanduser("~")
-csv_filename = os.path.join(home_dir, "Desktop", "NIFTY50_Historical_Data_From_1995_Clean.csv")
-combined_data.to_csv(csv_filename, index=False)
+# Step 4: Save the Combined Data Locally
+local_csv_filename = os.path.join("/Users/sudheer/Documents/GitHub/nifty", "NIFTY50_Historical_Data_From_1995_Clean.csv")
+combined_data.to_csv(local_csv_filename, index=False)
 
-print(f"NIFTY 50 Historical Data saved and updated as {csv_filename}")
+print(f"NIFTY 50 Historical Data saved and updated locally as {local_csv_filename}")
 
 # Displaying the latest update date and last few rows for verification
 print("\nNIFTY 50 Data Updated Successfully:")
 print(combined_data.tail())
 
-import subprocess
-
-# Step 5: Push the CSV file to GitHub
 github_repo_path = os.path.join(home_dir, "Desktop", "nifty50_data")  # Ensure this path is your cloned GitHub repo
-csv_filename_in_repo = os.path.join(github_repo_path, "NIFTY50_Historical_Data_From_1995_Clean.csv")
-
-# Copy the CSV file to the GitHub repository folder
-os.system(f"cp {csv_filename} {csv_filename_in_repo}")
-
-# Git commands to add, commit, and push
-try:
-    subprocess.run(["git", "-C", github_repo_path, "add", "NIFTY50_Historical_Data_From_1995_Clean.csv"], check=True)
-    subprocess.run(["git", "-C", github_repo_path, "commit", "-m", "Updated NIFTY 50 historical data"], check=True)
-    subprocess.run(["git", "-C", github_repo_path, "push"], check=True)
-    print("CSV file successfully pushed to GitHub.")
-except subprocess.CalledProcessError as e:
-    print(f"Error during GitHub push: {e}")
+# Run Machine Learning Model (Separate Script)
+import nifty50_ml_model
