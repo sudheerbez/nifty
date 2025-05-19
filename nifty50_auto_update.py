@@ -40,6 +40,82 @@ else:
     # Ensure Yahoo Finance Data Date is timezone-naive
     new_data['Date'] = pd.to_datetime(new_data['Date']).dt.tz_localize(None)
 
+# Fetch India VIX Data without API Key (Advanced Web Scraping from Screener.in)
+from bs4 import BeautifulSoup
+import requests
+
+def fetch_india_vix():
+    try:
+        print("Attempting to fetch India VIX data directly from Screener.in...")
+        screener_url = "https://www.screener.in/company/INDIAVIX/consolidated/"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive"
+        }
+
+        session = requests.Session()
+        session.headers.update(headers)
+        response = session.get(screener_url)
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # Debugging: Display the first 500 characters of the page
+        print("\n--- HTML Content Preview ---")
+        print(response.text[:500])
+        print("\n--- End of Preview ---\n")
+
+        # Attempt to extract India VIX value using multiple methods
+        vix_value = None
+        # Method 1: Using span with ₹ symbol
+        for span in soup.find_all("span"):
+            if "₹" in span.text:
+                try:
+                    vix_value = float(span.text.replace("₹", "").replace(",", "").strip())
+                    print(f"VIX value extracted using Method 1: {vix_value}")
+                    break
+                except:
+                    continue
+
+        # Method 2: Using alternate method if first fails
+        if not vix_value:
+            vix_section = soup.find("div", class_="company-ratios")
+            if vix_section:
+                vix_text = vix_section.get_text()
+                for line in vix_text.splitlines():
+                    if "₹" in line:
+                        try:
+                            vix_value = float(line.replace("₹", "").replace(",", "").strip())
+                            print(f"VIX value extracted using Method 2: {vix_value}")
+                            break
+                        except:
+                            continue
+
+        if vix_value:
+            print(f"India VIX data fetched successfully from Screener.in: {vix_value}")
+            return pd.DataFrame([{
+                'Date': datetime.today().strftime("%Y-%m-%d"),
+                'India_VIX': vix_value
+            }])
+        else:
+            raise ValueError("India VIX data could not be extracted from Screener.in.")
+
+    except Exception as e:
+        print(f"Error fetching India VIX data from Screener.in: {e}")
+        print("Using local India VIX data as fallback...")
+        try:
+            local_vix_file = "/Users/sudheer/Documents/GitHub/nifty/India_VIX_Historical_Data.csv"
+            vix_data = pd.read_csv(local_vix_file)
+            vix_data['Date'] = pd.to_datetime(vix_data['Date'])
+            print("India VIX data loaded from local file.")
+            return vix_data
+        except FileNotFoundError:
+            print("Local VIX file not found. Creating empty VIX data with NaN values.")
+            return pd.DataFrame(columns=['Date', 'India_VIX'])
+
+# Use the fetch_india_vix function to get India VIX data
+vix_data = fetch_india_vix()
+
 # Step 3: Combine Kaggle Data with New Data
 combined_data = pd.concat([kaggle_data, new_data], ignore_index=True)
 combined_data.drop_duplicates(subset='Date', keep='first', inplace=True)
@@ -57,7 +133,19 @@ combined_data.dropna(subset=numeric_columns, inplace=True)
 combined_data['Point_Change'] = (combined_data['Close'] - combined_data['Open']).round(2)
 combined_data['Percentage_Change'] = ((combined_data['Point_Change'] / combined_data['Open']) * 100).round(2)
 
-# Step 4: Save the Combined Data Locally
+# Ensure Date columns in both dataframes are in consistent datetime format
+combined_data['Date'] = pd.to_datetime(combined_data['Date'])
+vix_data['Date'] = pd.to_datetime(vix_data['Date'])
+
+# Merge VIX Data with Combined NIFTY Data if VIX Data is available
+if vix_data is not None:
+    combined_data = pd.merge(combined_data, vix_data[['Date', 'India_VIX']], on='Date', how='left')
+    print("India VIX data merged with NIFTY data.")
+else:
+    combined_data['India_VIX'] = None
+    print("India VIX data not available. Column added with NaN values.")
+
+# Step 4: Save the Combined Data Locally with India VIX
 local_csv_filename = os.path.join("/Users/sudheer/Documents/GitHub/nifty", "NIFTY50_Historical_Data_From_1995_Clean.csv")
 combined_data.to_csv(local_csv_filename, index=False)
 
@@ -67,6 +155,5 @@ print(f"NIFTY 50 Historical Data saved and updated locally as {local_csv_filenam
 print("\nNIFTY 50 Data Updated Successfully:")
 print(combined_data.tail())
 
-github_repo_path = os.path.join(home_dir, "Desktop", "nifty50_data")  # Ensure this path is your cloned GitHub repo
 # Run Machine Learning Model (Separate Script)
-import nifty50_ml_model
+import nifty50_yearlydata
