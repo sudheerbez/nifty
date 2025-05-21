@@ -17,56 +17,71 @@ combined_data = combined_data.sort_values(['Year', 'Date'])
 
 # Calculate Starting Price, End of Year Close, Year High, and Year Low
 yearly_data = combined_data.groupby('Year').agg(
-    Yearly_Starting_Price=('Close', 'first'),
-    Yearly_End_Price=('Close', 'last'),
-    Yearly_High=('High', 'max'),
-    Yearly_Low=('Low', 'min')
+    start_close=('Close', 'first'),
+    end_close=('Close', 'last'),
+    high=('High', 'max'),
+    low=('Low', 'min')
 ).reset_index()
 
 # Calculate Yearly Returns (Percentage)
 yearly_returns = combined_data.groupby('Year').agg(
-    Yearly_Return_Percentage=('Close', lambda x: ((x.iloc[-1] - x.iloc[0]) / x.iloc[0]) * 100)
+    return_pct=('Close', lambda x: ((x.iloc[-1] - x.iloc[0]) / x.iloc[0]) * 100)
 ).reset_index()
 
 # Calculate Yearly Points Change (Absolute)
 yearly_points_change = combined_data.groupby('Year').agg(
-    Yearly_Points_Change=('Close', lambda x: (x.iloc[-1] - x.iloc[0]))
+    points_change=('Close', lambda x: (x.iloc[-1] - x.iloc[0]))
 ).reset_index()
 
 # Calculate Yearly High to Low Percentage Change
 yearly_high_low = combined_data.groupby('Year').agg(
-    Yearly_High_to_Low_Change_Percentage=('High', lambda x: ((x.max() - combined_data.loc[x.index, 'Low'].min()) / combined_data.loc[x.index, 'Low'].min()) * 100)
+    high_low_pct=('High', lambda x: ((x.max() - combined_data.loc[x.index, 'Low'].min()) / combined_data.loc[x.index, 'Low'].min()) * 100)
 ).reset_index()
 
 # Calculate Points Change from Start of the Year High and Low
 yearly_high_low_points = combined_data.groupby('Year').agg(
-    Yearly_High_to_Low_Points_Change=('High', lambda x: (x.max() - combined_data.loc[x.index, 'Low'].min()))
+    high_low_points=('High', lambda x: (x.max() - combined_data.loc[x.index, 'Low'].min()))
 ).reset_index()
 
 # Calculate Yearly Starting to Low Points Change (Negative)
 yearly_start_low_points = combined_data.groupby('Year').agg(
-    Yearly_Starting_to_Low_Points_Change=('Low', lambda x: (x.min() - combined_data.loc[x.index[0], 'Close']))
+    start_low_points=('Low', lambda x: (x.min() - combined_data.loc[x.index[0], 'Close']))
 ).reset_index()
 
 # Calculate Yearly Starting to Low Percentage Change (Negative)
 yearly_start_low_percentage = combined_data.groupby('Year').agg(
-    Yearly_Starting_to_Low_Percentage_Change=('Low', lambda x: ((x.min() - combined_data.loc[x.index[0], 'Close']) / combined_data.loc[x.index[0], 'Close']) * 100)
+    start_low_pct=('Low', lambda x: ((x.min() - combined_data.loc[x.index[0], 'Close']) / combined_data.loc[x.index[0], 'Close']) * 100)
 ).reset_index()
 
 # Calculate Yearly Starting to High Points Change
 yearly_start_high_points = combined_data.groupby('Year').agg(
-    Yearly_Starting_to_High_Points_Change=('High', lambda x: (x.max() - combined_data.loc[x.index[0], 'Close']))
+    start_high_points=('High', lambda x: (x.max() - combined_data.loc[x.index[0], 'Close']))
 ).reset_index()
 
 # Calculate Yearly Starting to High Percentage Change
 yearly_start_high_percentage = combined_data.groupby('Year').agg(
-    Yearly_Starting_to_High_Percentage_Change=('High', lambda x: ((x.max() - combined_data.loc[x.index[0], 'Close']) / combined_data.loc[x.index[0], 'Close']) * 100)
+    start_high_pct=('High', lambda x: ((x.max() - combined_data.loc[x.index[0], 'Close']) / combined_data.loc[x.index[0], 'Close']) * 100)
 ).reset_index()
 
 # Calculate Year Start to Year End Close Price Percentage Change
 yearly_start_to_end_percentage = combined_data.groupby('Year').agg(
-    Yearly_Start_to_End_Percentage_Change=('Close', lambda x: ((x.iloc[-1] - x.iloc[0]) / x.iloc[0]) * 100)
+    start_end_pct=('Close', lambda x: ((x.iloc[-1] - x.iloc[0]) / x.iloc[0]) * 100)
 ).reset_index()
+
+# Calculate Year Start to Mid-Year Close Price Percentage Change
+# Find the mid-date for each year and calculate the percentage change from start to mid-year close
+mid_pct_list = []
+for year, group in combined_data.groupby('Year'):
+    group = group.sort_values('Date')
+    n = len(group)
+    if n == 0:
+        continue
+    mid_idx = n // 2
+    start_close = group.iloc[0]['Close']
+    mid_close = group.iloc[mid_idx]['Close']
+    pct_change = ((mid_close - start_close) / start_close) * 100
+    mid_pct_list.append({'Year': year, 'start_mid_pct': pct_change})
+yearly_start_to_mid_percentage = pd.DataFrame(mid_pct_list)
 
 # Merge the dataframes
 yearly_data = pd.merge(yearly_data, yearly_returns, on='Year')
@@ -78,6 +93,7 @@ yearly_data = pd.merge(yearly_data, yearly_start_low_percentage, on='Year')
 yearly_data = pd.merge(yearly_data, yearly_start_high_points, on='Year')
 yearly_data = pd.merge(yearly_data, yearly_start_high_percentage, on='Year')
 yearly_data = pd.merge(yearly_data, yearly_start_to_end_percentage, on='Year')
+yearly_data = pd.merge(yearly_data, yearly_start_to_mid_percentage, on='Year')
 
 # Display the yearly data
 print("\nYearly NIFTY 50 Returns, Points Change, and High-to-Low Change:")
